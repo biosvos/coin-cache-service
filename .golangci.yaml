@@ -1,0 +1,29 @@
+linters:
+  enable-all: true
+  disable:
+    - gofumpt
+    - ireturn
+    - varnamelen
+    - prealloc
+    - nlreturn
+    - depguard
+    - wsl
+    - godox
+    - godot
+    - gosimple
+    - gci
+    - goimports
+    - exportloopref
+    - tagalign
+    - copyloopvar # deprecated
+linters-settings:
+  funlen:
+    ignore-comments: true
+    lines: 60
+  lll:
+    line-length: 120
+  cyclop:
+    max-complexity: 10
+    skip-tests: true
+run:
+  timeout: 5m
