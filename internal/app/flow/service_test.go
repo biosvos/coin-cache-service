@@ -3,7 +3,7 @@ package flow_test
 import (
 	"testing"
 
-	"github.com/biosvos/go-template/internal/app/flow"
+	"github.com/biosvos/coin-cache-service/internal/app/flow"
 	"github.com/stretchr/testify/require"
 )
 

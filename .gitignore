@@ -1,4 +1,4 @@
 /.idea/
 /vendor/
-/go-template
+/coin-cache-service
 /.vscode/launch.json

@@ -8,6 +8,6 @@ RUN make build
 
 FROM scratch
 
-COPY --from=builder /app/go-template .
+COPY --from=builder /app/coin-cache-service .
 
-ENTRYPOINT ["/go-template"]
+ENTRYPOINT ["/coin-cache-service"]

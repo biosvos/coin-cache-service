@@ -1,4 +1,4 @@
-module github.com/biosvos/go-template
+module github.com/biosvos/coin-cache-service
 
 go 1.23
 
