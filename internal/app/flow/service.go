@@ -1,13 +1,45 @@
 package flow
 
-import "github.com/pkg/errors"
+import (
+	"context"
 
-type Service struct{}
+	"github.com/biosvos/coin-cache-service/internal/app/coinrepository"
+	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
+	setpkg "github.com/biosvos/coin-cache-service/internal/pkg/set"
+)
 
-func NewService() *Service {
-	return &Service{}
+type Repository interface {
+	coinrepository.ListCoinsQuery
+	coinrepository.ListBannedCoinsQuery
 }
 
-func (s *Service) Usecase() error {
-	return errors.New("not implemented")
+type Service struct {
+	repo Repository
+}
+
+func NewService(repo Repository) *Service {
+	return &Service{repo: repo}
+}
+
+func (s *Service) ListCoins(ctx context.Context) ([]string, error) {
+	bannedCoins, err := s.repo.ListBannedCoins(ctx)
+	if err != nil {
+		return nil, err
+	}
+	bannedCoinSet := setpkg.NewSet(func(coin *domain.BannedCoin) domain.CoinID {
+		return coin.CoinID()
+	})
+	bannedCoinSet.Add(bannedCoins...)
+	coins, err := s.repo.ListCoins(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var ret []string
+	for _, coin := range coins {
+		if bannedCoinSet.ContainKey(coin.ID()) {
+			continue
+		}
+		ret = append(ret, string(coin.ID()))
+	}
+	return ret, nil
 }

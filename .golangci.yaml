@@ -25,5 +25,11 @@ linters-settings:
   cyclop:
     max-complexity: 10
     skip-tests: true
+linters-settings:
+  tagliatelle:
+    case:
+      use-field-name: true
+      rules:
+        json: snake
 run:
   timeout: 5m
