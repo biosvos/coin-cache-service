@@ -132,7 +132,7 @@ func (m *Miner) Mine(ctx context.Context) error {
 		return err
 	}
 	now := time.Now()
-	if m.needRefresh(now, repositoryCoins) {
+	if !m.needRefresh(now, repositoryCoins) {
 		return nil
 	}
 
