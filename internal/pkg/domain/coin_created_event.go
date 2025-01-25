@@ -7,6 +7,8 @@ import (
 
 var _ Event = (*CoinCreatedEvent)(nil)
 
+const CoinCreatedEventTopic = "coin.created"
+
 type CoinCreatedEvent struct {
 	CoinID    CoinID    `json:"coin_id"`
 	CreatedAt time.Time `json:"created_at"`
@@ -26,7 +28,7 @@ func NewCoinCreatedEvent(createdAt time.Time, coinID CoinID) *CoinCreatedEvent {
 }
 
 func (e *CoinCreatedEvent) Topic() string {
-	return "coin.created"
+	return CoinCreatedEventTopic
 }
 
 func (e *CoinCreatedEvent) Payload() []byte {

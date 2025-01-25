@@ -7,19 +7,14 @@ import (
 )
 
 type TradeCommand interface {
-	CreateTradeCommand
-	UpdateTradeCommand
-	DeleteTradeCommand
+	SaveTradesCommand
+	DeleteTradesCommand
 }
 
-type CreateTradeCommand interface {
-	CreateTrade(ctx context.Context, trade *domain.Trade) (*domain.Trade, error)
+type SaveTradesCommand interface {
+	SaveTrades(ctx context.Context, id domain.CoinID, trades []*domain.Trade) error
 }
 
-type UpdateTradeCommand interface {
-	UpdateTrade(ctx context.Context, trade *domain.Trade) (*domain.Trade, error)
-}
-
-type DeleteTradeCommand interface {
-	DeleteTrade(ctx context.Context, id domain.CoinID) error
+type DeleteTradesCommand interface {
+	DeleteTrades(ctx context.Context, id domain.CoinID) error
 }

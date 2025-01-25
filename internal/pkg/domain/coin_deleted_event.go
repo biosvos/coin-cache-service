@@ -7,6 +7,8 @@ import (
 
 var _ Event = (*CoinDeletedEvent)(nil)
 
+const CoinDeletedEventTopic = "coin.deleted"
+
 type CoinDeletedEvent struct {
 	CoinID    CoinID `json:"coin_id"`
 	DeletedAt time.Time
@@ -26,7 +28,7 @@ func ParseCoinDeletedEvent(payload []byte) *CoinDeletedEvent {
 }
 
 func (e *CoinDeletedEvent) Topic() string {
-	return "coin.deleted"
+	return CoinDeletedEventTopic
 }
 
 func (e *CoinDeletedEvent) Payload() []byte {

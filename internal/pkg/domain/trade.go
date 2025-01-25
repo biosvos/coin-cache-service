@@ -13,3 +13,33 @@ type Trade struct {
 	maxPrice     Price
 	minPrice     Price
 }
+
+func NewTrade(date time.Time, lastPrice, openingPrice, maxPrice, minPrice Price) *Trade {
+	return &Trade{
+		date:         date,
+		lastPrice:    lastPrice,
+		openingPrice: openingPrice,
+		maxPrice:     maxPrice,
+		minPrice:     minPrice,
+	}
+}
+
+func (t *Trade) Date() time.Time {
+	return t.date
+}
+
+func (t *Trade) LastPrice() Price {
+	return t.lastPrice
+}
+
+func (t *Trade) OpeningPrice() Price {
+	return t.openingPrice
+}
+
+func (t *Trade) MaxPrice() Price {
+	return t.maxPrice
+}
+
+func (t *Trade) MinPrice() Price {
+	return t.minPrice
+}

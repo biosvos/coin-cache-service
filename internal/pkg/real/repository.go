@@ -103,24 +103,42 @@ func (r *Repository) DeleteCoin(ctx context.Context, domainCoin *domain.Coin) er
 	})
 }
 
-// CreateTrade implements coinrepository.CoinRepository.
-func (r *Repository) CreateTrade(ctx context.Context, trade *domain.Trade) (*domain.Trade, error) {
-	panic("unimplemented")
-}
-
-// DeleteTrade implements coinrepository.CoinRepository.
-func (r *Repository) DeleteTrade(ctx context.Context, id domain.CoinID) error {
-	panic("unimplemented")
+// SaveTrades implements coinrepository.CoinRepository.
+func (r *Repository) SaveTrades(ctx context.Context, id domain.CoinID, domainTrades []*domain.Trade) error {
+	return r.db.Update(func(txn *badger.Txn) error {
+		trades := NewTrades(id, domainTrades)
+		return txn.Set(trades.Key(), trades.Value())
+	})
 }
 
 // ListTrades implements coinrepository.CoinRepository.
 func (r *Repository) ListTrades(ctx context.Context, id domain.CoinID) ([]*domain.Trade, error) {
-	panic("unimplemented")
+	var domainTrades []*domain.Trade
+	err := r.db.View(func(txn *badger.Txn) error {
+		trades := NewTrades(id, nil)
+		item, err := txn.Get(trades.Key())
+		if err != nil {
+			return err
+		}
+		return item.Value(func(v []byte) error {
+			var trades Trades
+			err := json.Unmarshal(v, &trades)
+			if err != nil {
+				return err
+			}
+			domainTrades = trades.ToDomain()
+			return nil
+		})
+	})
+	return domainTrades, err
 }
 
-// UpdateTrade implements coinrepository.CoinRepository.
-func (r *Repository) UpdateTrade(ctx context.Context, trade *domain.Trade) (*domain.Trade, error) {
-	panic("unimplemented")
+// DeleteTrades implements coinrepository.CoinRepository.
+func (r *Repository) DeleteTrades(ctx context.Context, id domain.CoinID) error {
+	return r.db.Update(func(txn *badger.Txn) error {
+		trades := NewTrades(id, nil)
+		return txn.Delete(trades.Key())
+	})
 }
 
 // CreateBannedCoin implements coinrepository.CoinRepository.

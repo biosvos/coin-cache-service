@@ -9,6 +9,7 @@ import (
 
 	"github.com/biosvos/coin-cache-service/internal/app/flow"
 	"github.com/biosvos/coin-cache-service/internal/app/miner"
+	"github.com/biosvos/coin-cache-service/internal/app/trader"
 	"github.com/biosvos/coin-cache-service/internal/pkg/buses/local"
 	"github.com/biosvos/coin-cache-service/internal/pkg/real"
 	"github.com/biosvos/coin-cache-service/internal/pkg/upbit"
@@ -64,6 +65,10 @@ func main() {
 	repo := real.NewRepository("/tmp/coins")
 	bus := local.NewBus(logger)
 	mine := miner.NewMiner(logger, service, repo, bus)
+
+	trader := trader.NewTrader(logger, bus, service, repo)
+	trader.Start(context.Background())
+
 	err := mine.Mine(context.Background())
 	if err != nil {
 		panic(err)
