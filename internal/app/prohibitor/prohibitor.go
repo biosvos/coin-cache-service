@@ -30,32 +30,40 @@ func NewProhibitor(logger *zap.Logger, bus bus.Bus, repo Repository) *Prohibitor
 }
 
 func (p *Prohibitor) Start(ctx context.Context) error {
-	coins, err := p.repo.ListCoins(ctx)
+	err := p.checkAndProhibitCoins(ctx)
 	if err != nil {
 		return errors.WithStack(err)
-	}
-	for _, coin := range coins {
-		err := p.ProhibitCoin(ctx, coin.ID())
-		if err != nil {
-			return errors.WithStack(err)
-		}
 	}
 	p.bus.Subscribe(ctx, domain.CoinCreatedEventTopic, p.handleCoinCreated)
 	p.bus.Subscribe(ctx, domain.CoinUpdatedEventTopic, p.handleCoinUpdated)
 	return nil
 }
 
+func (p *Prohibitor) checkAndProhibitCoins(ctx context.Context) error {
+	coins, err := p.repo.ListCoins(ctx)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	for _, coin := range coins {
+		err := p.CheckAndProhibitCoin(ctx, coin.ID())
+		if err != nil {
+			return errors.WithStack(err)
+		}
+	}
+	return nil
+}
+
 func (p *Prohibitor) handleCoinCreated(ctx context.Context, event domain.Event) error {
 	coinCreatedEvent := domain.ParseCoinCreatedEvent(event.Payload())
-	return p.ProhibitCoin(ctx, coinCreatedEvent.CoinID)
+	return p.CheckAndProhibitCoin(ctx, coinCreatedEvent.CoinID)
 }
 
 func (p *Prohibitor) handleCoinUpdated(ctx context.Context, event domain.Event) error {
 	coinUpdatedEvent := domain.ParseCoinUpdatedEvent(event.Payload())
-	return p.ProhibitCoin(ctx, coinUpdatedEvent.CoinID)
+	return p.CheckAndProhibitCoin(ctx, coinUpdatedEvent.CoinID)
 }
 
-func (p *Prohibitor) ProhibitCoin(ctx context.Context, coinID domain.CoinID) error {
+func (p *Prohibitor) CheckAndProhibitCoin(ctx context.Context, coinID domain.CoinID) error {
 	alreadyBanned, err := p.isAlreadyBanned(ctx, coinID)
 	if err != nil {
 		return errors.WithStack(err)
