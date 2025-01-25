@@ -59,7 +59,7 @@ func (s *Service) ListTrades(ctx context.Context, coinID domain.CoinID) (*domain
 	for _, candle := range candles {
 		dateTime, err := time.ParseInLocation("2006-01-02T15:04:05", candle.CandleDateTimeUtc, time.UTC)
 		if err != nil {
-			return nil, err
+			return nil, errors.WithStack(err)
 		}
 
 		tradePrice := strconv.FormatFloat(candle.TradePrice, 'f', -1, 64)

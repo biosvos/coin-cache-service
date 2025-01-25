@@ -10,8 +10,8 @@ var _ Event = (*CoinDeletedEvent)(nil)
 const CoinDeletedEventTopic = "coin.deleted"
 
 type CoinDeletedEvent struct {
-	CoinID    CoinID `json:"coin_id"`
-	DeletedAt time.Time
+	CoinID    CoinID    `json:"coin_id"`
+	DeletedAt time.Time `json:"deleted_at"`
 }
 
 func NewCoinDeletedEvent(deletedAt time.Time, coinID CoinID) *CoinDeletedEvent {

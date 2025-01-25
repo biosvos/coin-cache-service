@@ -18,6 +18,7 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/danielgtaylor/huma/v2/humacli"
 	"github.com/go-chi/chi/v5"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -54,15 +55,15 @@ type ListTradesResponse struct {
 }
 
 func AddRoutes(api huma.API, service *flow.Service) {
-	huma.Register(api, huma.Operation{
+	huma.Register(api, huma.Operation{ //nolint:exhaustruct
 		OperationID: "list.coins",
 		Summary:     "List coins",
 		Method:      http.MethodGet,
 		Path:        "/coins",
-	}, func(ctx context.Context, input *ListCoinsRequest) (*ListCoinsResponse, error) {
+	}, func(ctx context.Context, _ *ListCoinsRequest) (*ListCoinsResponse, error) {
 		ret, err := service.ListCoins(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errors.WithStack(err)
 		}
 		resp := &ListCoinsResponse{
 			Body: &ListCoinsBody{
@@ -71,7 +72,7 @@ func AddRoutes(api huma.API, service *flow.Service) {
 		}
 		return resp, nil
 	})
-	huma.Register(api, huma.Operation{
+	huma.Register(api, huma.Operation{ //nolint:exhaustruct
 		OperationID: "list.trades",
 		Summary:     "List trades",
 		Method:      http.MethodGet,
@@ -79,7 +80,7 @@ func AddRoutes(api huma.API, service *flow.Service) {
 	}, func(ctx context.Context, input *ListTradesRequest) (*ListTradesResponse, error) {
 		ret, err := service.ListTrades(ctx, domain.CoinID(input.CoinID))
 		if err != nil {
-			return nil, err
+			return nil, errors.WithStack(err)
 		}
 		var trades []*TradeBody
 		for _, trade := range ret.Trades() {
@@ -98,10 +99,13 @@ func AddRoutes(api huma.API, service *flow.Service) {
 }
 
 func main() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-
 	logger, _ := zap.NewProduction()
-	defer logger.Sync() // flushes buffer, if any
+	defer func() {
+		err := logger.Sync()
+		if err != nil {
+			log.Printf("failed to sync logger: %v", err)
+		}
+	}()
 
 	service := upbit.NewService()
 	repo := real.NewRepository("/tmp/coins")
@@ -109,16 +113,23 @@ func main() {
 	mine := miner.NewMiner(logger, service, repo, bus)
 
 	trader := trader.NewTrader(logger, bus, service, repo)
-	trader.Start(context.Background())
+	ctx := context.Background()
+	trader.Start(ctx)
 
-	err := mine.Mine(context.Background())
+	err := mine.Mine(ctx)
 	if err != nil {
 		panic(err)
 	}
 
 	flowService := flow.NewService(repo)
 
-	cli := humacli.New(func(hooks humacli.Hooks, options *Options) {
+	cli := newClient(ctx, flowService)
+
+	cli.Run()
+}
+
+func newClient(ctx context.Context, flowService *flow.Service) humacli.CLI {
+	return humacli.New(func(hooks humacli.Hooks, options *Options) {
 		router := chi.NewMux()
 		api := humachi.New(router, huma.DefaultConfig("My API", "1.0.0"))
 
@@ -149,7 +160,7 @@ func main() {
 		})
 
 		hooks.OnStop(func() {
-			ctx, cancel := context.WithTimeout(context.Background(), giveUpTimeout)
+			ctx, cancel := context.WithTimeout(ctx, giveUpTimeout)
 			defer cancel()
 			err := server.Shutdown(ctx)
 			if err != nil {
@@ -157,6 +168,4 @@ func main() {
 			}
 		})
 	})
-
-	cli.Run()
 }

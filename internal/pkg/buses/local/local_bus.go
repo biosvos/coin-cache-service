@@ -2,6 +2,7 @@ package local
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/biosvos/coin-cache-service/internal/pkg/bus"
@@ -39,18 +40,17 @@ func (b *Bus) handle(ctx context.Context, handler EventHandler, event domain.Eve
 		if err == nil {
 			return
 		}
-		switch v := err.(type) {
-		case *bus.RetryAfterError:
-			b.logger.Info("retry after", zap.Duration("duration", v.Duration()))
-			time.Sleep(v.Duration())
-
-		default:
-			b.logger.Error("error handling event", zap.Error(err))
-			return
+		var retryAfterError *bus.RetryAfterError
+		if errors.As(err, &retryAfterError) {
+			b.logger.Info("retry after", zap.Duration("duration", retryAfterError.Duration()))
+			time.Sleep(retryAfterError.Duration())
+			continue
 		}
+		b.logger.Error("error handling event", zap.Error(err))
+		return
 	}
 }
 
-func (b *Bus) Subscribe(ctx context.Context, topic string, handler func(ctx context.Context, event domain.Event) error) {
+func (b *Bus) Subscribe(_ context.Context, topic string, handler func(ctx context.Context, event domain.Event) error) {
 	b.handlers[topic] = append(b.handlers[topic], handler)
 }

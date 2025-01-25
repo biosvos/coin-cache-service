@@ -100,7 +100,10 @@ func (m *Miner) Start(ctx context.Context) error {
 		for {
 			select {
 			case <-m.timer.C:
-				m.Mine(ctx)
+				err := m.Mine(ctx)
+				if err != nil {
+					m.logger.Error("failed to mine", zap.Error(err))
+				}
 				_ = m.timer.Reset(mineInterval)
 			case <-m.stopCh:
 				return
@@ -195,7 +198,10 @@ func (m *Miner) Mine(ctx context.Context) error {
 	return nil
 }
 
-func (m *Miner) listServiceCoinsWithoutBanned(ctx context.Context, bannedCoinSet *setpkg.Set[domain.CoinID, *domain.BannedCoin]) ([]*domain.Coin, error) {
+func (m *Miner) listServiceCoinsWithoutBanned(
+	ctx context.Context,
+	bannedCoinSet *setpkg.Set[domain.CoinID, *domain.BannedCoin],
+) ([]*domain.Coin, error) {
 	serviceCoins, err := m.service.ListCoins(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -210,7 +216,10 @@ func (m *Miner) listServiceCoinsWithoutBanned(ctx context.Context, bannedCoinSet
 	return filteredCoins, nil
 }
 
-func (m *Miner) listRepositoryCoinsWithoutBanned(ctx context.Context, bannedCoinSet *setpkg.Set[domain.CoinID, *domain.BannedCoin]) ([]*domain.Coin, error) {
+func (m *Miner) listRepositoryCoinsWithoutBanned(
+	ctx context.Context,
+	bannedCoinSet *setpkg.Set[domain.CoinID, *domain.BannedCoin],
+) ([]*domain.Coin, error) {
 	repositoryCoins, err := m.repository.ListCoins(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)

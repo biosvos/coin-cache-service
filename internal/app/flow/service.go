@@ -6,6 +6,7 @@ import (
 	"github.com/biosvos/coin-cache-service/internal/pkg/coinrepository"
 	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
 	setpkg "github.com/biosvos/coin-cache-service/internal/pkg/set"
+	"github.com/pkg/errors"
 )
 
 type Repository interface {
@@ -25,7 +26,7 @@ func NewService(repo Repository) *Service {
 func (s *Service) ListCoins(ctx context.Context) ([]string, error) {
 	bannedCoins, err := s.repo.ListBannedCoins(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 	bannedCoinSet := setpkg.NewSet(func(coin *domain.BannedCoin) domain.CoinID {
 		return coin.CoinID()
@@ -33,7 +34,7 @@ func (s *Service) ListCoins(ctx context.Context) ([]string, error) {
 	bannedCoinSet.Add(bannedCoins...)
 	coins, err := s.repo.ListCoins(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 	var ret []string
 	for _, coin := range coins {
@@ -48,7 +49,7 @@ func (s *Service) ListCoins(ctx context.Context) ([]string, error) {
 func (s *Service) ListTrades(ctx context.Context, coinID domain.CoinID) (*domain.Trades, error) {
 	trades, err := s.repo.ListTrades(ctx, coinID)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 	return trades, nil
 }
