@@ -8,6 +8,11 @@ import (
 
 type CoinQuery interface {
 	ListCoinsQuery
+	GetCoinQuery
+}
+
+type GetCoinQuery interface {
+	GetCoin(ctx context.Context, coinID domain.CoinID) (*domain.Coin, error)
 }
 
 type ListCoinsQuery interface {

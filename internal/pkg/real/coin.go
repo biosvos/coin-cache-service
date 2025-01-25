@@ -23,8 +23,12 @@ func NewCoin(domainCoin *domain.Coin) *Coin {
 	}
 }
 
+func CoinKey(coinID domain.CoinID) []byte {
+	return []byte(coinPrefix + string(coinID))
+}
+
 func (c *Coin) Key() []byte {
-	return []byte(coinPrefix + c.ID)
+	return CoinKey(domain.CoinID(c.ID))
 }
 
 func (c *Coin) Value() []byte {

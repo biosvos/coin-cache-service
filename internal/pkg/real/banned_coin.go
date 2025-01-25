@@ -23,8 +23,12 @@ func NewBannedCoin(coin *domain.BannedCoin) *BannedCoin {
 
 const bannedCoinPrefix = "banned_coin:"
 
+func BannedCoinKey(coinID domain.CoinID) []byte {
+	return []byte(bannedCoinPrefix + string(coinID))
+}
+
 func (c *BannedCoin) Key() []byte {
-	return []byte(bannedCoinPrefix + c.ID)
+	return BannedCoinKey(domain.CoinID(c.ID))
 }
 
 func (c *BannedCoin) Value() []byte {

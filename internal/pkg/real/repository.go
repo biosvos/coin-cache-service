@@ -63,6 +63,21 @@ func (r *Repository) ListCoins(_ context.Context) ([]*domain.Coin, error) {
 	return ret, nil
 }
 
+// GetCoin implements coinrepository.CoinRepository.
+func (r *Repository) GetCoin(_ context.Context, coinID domain.CoinID) (*domain.Coin, error) {
+	key := CoinKey(coinID)
+	item, err := r.kv.Get(key)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	var ret Coin
+	err = json.Unmarshal(item, &ret)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return ret.ToDomain(), nil
+}
+
 // UpdateCoin implements coinrepository.CoinRepository.
 func (r *Repository) UpdateCoin(_ context.Context, domainCoin *domain.Coin) (*domain.Coin, error) {
 	coin := NewCoin(domainCoin)
@@ -128,8 +143,12 @@ func (r *Repository) DeleteTrades(_ context.Context, id domain.CoinID) error {
 
 // CreateBannedCoin implements coinrepository.CoinRepository.
 func (r *Repository) CreateBannedCoin(_ context.Context, bannedCoin *domain.BannedCoin) (*domain.BannedCoin, error) {
-	_ = bannedCoin
-	panic("unimplemented")
+	coin := NewBannedCoin(bannedCoin)
+	err := r.kv.Create(coin.Key(), coin.Value())
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return bannedCoin, nil
 }
 
 // ListBannedCoins implements coinrepository.CoinRepository.
@@ -152,6 +171,24 @@ func (r *Repository) ListBannedCoins(_ context.Context) ([]*domain.BannedCoin, e
 		ret = append(ret, coin.ToDomain())
 	}
 	return ret, nil
+}
+
+// GetBannedCoin implements coinrepository.CoinRepository.
+func (r *Repository) GetBannedCoin(_ context.Context, coinID domain.CoinID) (*domain.BannedCoin, error) {
+	key := BannedCoinKey(coinID)
+	item, err := r.kv.Get(key)
+	if err != nil {
+		if errors.Is(err, keyvalue.ErrKeyNotFound) {
+			return nil, coinrepository.ErrBannedCoinNotFound
+		}
+		return nil, errors.WithStack(err)
+	}
+	var ret BannedCoin
+	err = json.Unmarshal(item, &ret)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return ret.ToDomain(), nil
 }
 
 // UpdateBannedCoin implements coinrepository.CoinRepository.
