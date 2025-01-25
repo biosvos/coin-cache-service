@@ -16,6 +16,7 @@ linters:
     - exportloopref
     - tagalign
     - copyloopvar # deprecated
+    - tagliatelle # 귀찮음으로 인해...
 linters-settings:
   funlen:
     ignore-comments: true
@@ -25,10 +26,5 @@ linters-settings:
   cyclop:
     max-complexity: 10
     skip-tests: true
-  tagliatelle:
-    case:
-      use-field-name: true
-      rules:
-        json: snake
 run:
   timeout: 5m
