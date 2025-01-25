@@ -82,7 +82,7 @@ func (p *Prohibitor) checkAndProhibitCoins(ctx context.Context) error {
 		return errors.WithStack(err)
 	}
 	for _, coin := range coins {
-		err := p.CheckAndProhibitCoin(ctx, coin.ID())
+		err := p.CheckAndProhibitCoinByStatus(ctx, coin.ID())
 		if err != nil {
 			return errors.WithStack(err)
 		}
@@ -92,15 +92,15 @@ func (p *Prohibitor) checkAndProhibitCoins(ctx context.Context) error {
 
 func (p *Prohibitor) handleCoinCreated(ctx context.Context, event domain.Event) error {
 	coinCreatedEvent := domain.ParseCoinCreatedEvent(event.Payload())
-	return p.CheckAndProhibitCoin(ctx, coinCreatedEvent.CoinID)
+	return p.CheckAndProhibitCoinByStatus(ctx, coinCreatedEvent.CoinID)
 }
 
 func (p *Prohibitor) handleCoinUpdated(ctx context.Context, event domain.Event) error {
 	coinUpdatedEvent := domain.ParseCoinUpdatedEvent(event.Payload())
-	return p.CheckAndProhibitCoin(ctx, coinUpdatedEvent.CoinID)
+	return p.CheckAndProhibitCoinByStatus(ctx, coinUpdatedEvent.CoinID)
 }
 
-func (p *Prohibitor) CheckAndProhibitCoin(ctx context.Context, coinID domain.CoinID) error {
+func (p *Prohibitor) CheckAndProhibitCoinByStatus(ctx context.Context, coinID domain.CoinID) error {
 	alreadyBanned, err := p.isAlreadyBanned(ctx, coinID)
 	if err != nil {
 		return errors.WithStack(err)
