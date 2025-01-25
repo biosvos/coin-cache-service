@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"time"
 
 	"github.com/biosvos/coin-cache-service/internal/app/coinrepository"
 	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
@@ -104,18 +105,18 @@ func (r *Repository) DeleteCoin(ctx context.Context, domainCoin *domain.Coin) er
 }
 
 // SaveTrades implements coinrepository.CoinRepository.
-func (r *Repository) SaveTrades(ctx context.Context, id domain.CoinID, domainTrades []*domain.Trade) error {
+func (r *Repository) SaveTrades(ctx context.Context, domainTrades *domain.Trades) error {
 	return r.db.Update(func(txn *badger.Txn) error {
-		trades := NewTrades(id, domainTrades)
+		trades := NewTrades(domainTrades.CoinID(), domainTrades.ModifiedAt(), domainTrades.Trades())
 		return txn.Set(trades.Key(), trades.Value())
 	})
 }
 
 // ListTrades implements coinrepository.CoinRepository.
-func (r *Repository) ListTrades(ctx context.Context, id domain.CoinID) ([]*domain.Trade, error) {
-	var domainTrades []*domain.Trade
+func (r *Repository) ListTrades(ctx context.Context, id domain.CoinID) (*domain.Trades, error) {
+	var domainTrades *domain.Trades
 	err := r.db.View(func(txn *badger.Txn) error {
-		trades := NewTrades(id, nil)
+		trades := NewTrades(id, time.Time{}, nil)
 		item, err := txn.Get(trades.Key())
 		if err != nil {
 			return err
@@ -130,13 +131,16 @@ func (r *Repository) ListTrades(ctx context.Context, id domain.CoinID) ([]*domai
 			return nil
 		})
 	})
-	return domainTrades, err
+	if err != nil {
+		return nil, err
+	}
+	return domainTrades, nil
 }
 
 // DeleteTrades implements coinrepository.CoinRepository.
 func (r *Repository) DeleteTrades(ctx context.Context, id domain.CoinID) error {
 	return r.db.Update(func(txn *badger.Txn) error {
-		trades := NewTrades(id, nil)
+		trades := NewTrades(id, time.Time{}, nil)
 		return txn.Delete(trades.Key())
 	})
 }

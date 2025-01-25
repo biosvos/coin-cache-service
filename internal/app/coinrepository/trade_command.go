@@ -12,7 +12,7 @@ type TradeCommand interface {
 }
 
 type SaveTradesCommand interface {
-	SaveTrades(ctx context.Context, id domain.CoinID, trades []*domain.Trade) error
+	SaveTrades(ctx context.Context, trades *domain.Trades) error
 }
 
 type DeleteTradesCommand interface {

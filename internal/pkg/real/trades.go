@@ -8,16 +8,17 @@ import (
 )
 
 type Trades struct {
-	CoinID domain.CoinID
-	Trades []*Trade
+	CoinID     domain.CoinID
+	ModifiedAt time.Time
+	Trades     []*Trade
 }
 
-func NewTrades(coinID domain.CoinID, domainTrades []*domain.Trade) *Trades {
+func NewTrades(coinID domain.CoinID, modifiedAt time.Time, domainTrades []*domain.Trade) *Trades {
 	var trades []*Trade
 	for _, trade := range domainTrades {
 		trades = append(trades, NewTrade(trade))
 	}
-	return &Trades{CoinID: coinID, Trades: trades}
+	return &Trades{CoinID: coinID, ModifiedAt: modifiedAt, Trades: trades}
 }
 
 type Trade struct {
@@ -62,10 +63,10 @@ func (t *Trades) Value() []byte {
 	return bytes
 }
 
-func (t *Trades) ToDomain() []*domain.Trade {
+func (t *Trades) ToDomain() *domain.Trades {
 	var trades []*domain.Trade
 	for _, trade := range t.Trades {
 		trades = append(trades, trade.ToDomain())
 	}
-	return trades
+	return domain.NewTrades(t.CoinID, t.ModifiedAt, trades)
 }

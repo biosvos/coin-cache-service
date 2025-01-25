@@ -11,7 +11,7 @@ type ListCoinsQuery interface {
 }
 
 type ListTradesQuery interface {
-	ListTrades(ctx context.Context, coinID domain.CoinID) ([]*domain.Trade, error)
+	ListTrades(ctx context.Context, coinID domain.CoinID) (*domain.Trades, error)
 }
 
 type CoinService interface {

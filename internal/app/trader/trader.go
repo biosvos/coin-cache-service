@@ -44,7 +44,7 @@ func (t *Trader) RefreshTrades(ctx context.Context, coinID domain.CoinID) error 
 	if err != nil {
 		return err
 	}
-	err = t.repo.SaveTrades(ctx, coinID, trades)
+	err = t.repo.SaveTrades(ctx, trades)
 	if err != nil {
 		return err
 	}

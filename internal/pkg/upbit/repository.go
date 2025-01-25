@@ -41,8 +41,9 @@ func (s *Service) ListCoins(ctx context.Context) ([]*domain.Coin, error) {
 }
 
 // ListTrades implements coinservice.CoinService.
-func (s *Service) ListTrades(ctx context.Context, coinID domain.CoinID) ([]*domain.Trade, error) {
+func (s *Service) ListTrades(ctx context.Context, coinID domain.CoinID) (*domain.Trades, error) {
 	var candles []*Candle
+	now := time.Now()
 	err := retry(func() error {
 		var err error
 		candles, err = s.upbit.ListDayCandles(ctx, string(coinID), 20)
@@ -74,7 +75,7 @@ func (s *Service) ListTrades(ctx context.Context, coinID domain.CoinID) ([]*doma
 			domain.Price(lowPrice),
 		))
 	}
-	return ret, nil
+	return domain.NewTrades(coinID, now, ret), nil
 }
 
 func retry(fn func() error) error {

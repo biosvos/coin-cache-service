@@ -11,5 +11,5 @@ type TradeQuery interface {
 }
 
 type ListTradesQuery interface {
-	ListTrades(ctx context.Context, id domain.CoinID) ([]*domain.Trade, error)
+	ListTrades(ctx context.Context, id domain.CoinID) (*domain.Trades, error)
 }
