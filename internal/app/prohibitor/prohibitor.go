@@ -16,7 +16,9 @@ type Repository interface {
 	coinrepository.GetCoinQuery
 
 	coinrepository.CreateBannedCoinCommand
+	coinrepository.ListBannedCoinsQuery
 	coinrepository.GetBannedCoinQuery
+	coinrepository.DeleteBannedCoinCommand
 }
 
 type Prohibitor struct {
@@ -30,12 +32,47 @@ func NewProhibitor(logger *zap.Logger, bus bus.Bus, repo Repository) *Prohibitor
 }
 
 func (p *Prohibitor) Start(ctx context.Context) error {
-	err := p.checkAndProhibitCoins(ctx)
+	err := p.checkAndAllowCoins(ctx)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	err = p.checkAndProhibitCoins(ctx)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 	p.bus.Subscribe(ctx, domain.CoinCreatedEventTopic, p.handleCoinCreated)
 	p.bus.Subscribe(ctx, domain.CoinUpdatedEventTopic, p.handleCoinUpdated)
+	return nil
+}
+
+func (p *Prohibitor) checkAndAllowCoins(ctx context.Context) error {
+	bannedCoins, err := p.repo.ListBannedCoins(ctx)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	for _, bannedCoin := range bannedCoins {
+		err := p.checkAndAllowCoin(ctx, bannedCoin.CoinID())
+		if err != nil {
+			return errors.WithStack(err)
+		}
+	}
+	return nil
+}
+
+func (p *Prohibitor) checkAndAllowCoin(ctx context.Context, coinID domain.CoinID) error {
+	now := time.Now()
+	bannedCoin, err := p.repo.GetBannedCoin(ctx, coinID)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	if !bannedCoin.IsBanExpired(now) {
+		return nil
+	}
+	err = p.repo.DeleteBannedCoin(ctx, bannedCoin)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	p.logger.Info("allowed coin", zap.String("coin_id", string(bannedCoin.CoinID())))
 	return nil
 }
 
