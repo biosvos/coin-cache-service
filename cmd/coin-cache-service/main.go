@@ -11,6 +11,7 @@ import (
 	"github.com/biosvos/coin-cache-service/internal/app/miner"
 	"github.com/biosvos/coin-cache-service/internal/app/trader"
 	"github.com/biosvos/coin-cache-service/internal/pkg/buses/local"
+	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
 	"github.com/biosvos/coin-cache-service/internal/pkg/real"
 	"github.com/biosvos/coin-cache-service/internal/pkg/upbit"
 	"github.com/danielgtaylor/huma/v2"
@@ -35,6 +36,23 @@ type ListCoinsResponse struct {
 	Body *ListCoinsBody `doc:"Body" json:"body"`
 }
 
+type TradeBody struct {
+	Date  time.Time
+	Price string
+}
+
+type ListTradesBody struct {
+	Trades []*TradeBody
+}
+
+type ListTradesRequest struct {
+	CoinID string `path:"coinID"`
+}
+
+type ListTradesResponse struct {
+	Body *ListTradesBody `doc:"Body" json:"body"`
+}
+
 func AddRoutes(api huma.API, service *flow.Service) {
 	huma.Register(api, huma.Operation{
 		OperationID: "list.coins",
@@ -49,6 +67,30 @@ func AddRoutes(api huma.API, service *flow.Service) {
 		resp := &ListCoinsResponse{
 			Body: &ListCoinsBody{
 				Coins: ret,
+			},
+		}
+		return resp, nil
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "list.trades",
+		Summary:     "List trades",
+		Method:      http.MethodGet,
+		Path:        "/trades/{coinID}",
+	}, func(ctx context.Context, input *ListTradesRequest) (*ListTradesResponse, error) {
+		ret, err := service.ListTrades(ctx, domain.CoinID(input.CoinID))
+		if err != nil {
+			return nil, err
+		}
+		var trades []*TradeBody
+		for _, trade := range ret.Trades() {
+			trades = append(trades, &TradeBody{
+				Date:  trade.Date(),
+				Price: string(trade.LastPrice()),
+			})
+		}
+		resp := &ListTradesResponse{
+			Body: &ListTradesBody{
+				Trades: trades,
 			},
 		}
 		return resp, nil

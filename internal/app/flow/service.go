@@ -11,6 +11,7 @@ import (
 type Repository interface {
 	coinrepository.ListCoinsQuery
 	coinrepository.ListBannedCoinsQuery
+	coinrepository.ListTradesQuery
 }
 
 type Service struct {
@@ -42,4 +43,12 @@ func (s *Service) ListCoins(ctx context.Context) ([]string, error) {
 		ret = append(ret, string(coin.ID()))
 	}
 	return ret, nil
+}
+
+func (s *Service) ListTrades(ctx context.Context, coinID domain.CoinID) (*domain.Trades, error) {
+	trades, err := s.repo.ListTrades(ctx, coinID)
+	if err != nil {
+		return nil, err
+	}
+	return trades, nil
 }
