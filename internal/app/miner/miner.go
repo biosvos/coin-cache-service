@@ -122,34 +122,17 @@ func (m *Miner) Mine(ctx context.Context) error {
 	m.logger.Info("start mine")
 	defer m.logger.Info("mine done")
 
-	bannedCoins, err := m.repository.ListBannedCoins(ctx)
+	bannedCoinSet, err := m.listBannedCoinSet(ctx)
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
-	bannedCoinSet := setpkg.NewSet(
-		func(bannedCoin *domain.BannedCoin) domain.CoinID {
-			return bannedCoin.CoinID()
-		},
-	)
-	bannedCoinSet.Add(bannedCoins...)
 
 	repositoryCoins, err := m.listRepositoryCoinsWithoutBanned(ctx, bannedCoinSet)
 	if err != nil {
 		return err
 	}
-	isAnyOld := false
 	now := time.Now()
-	for _, coin := range repositoryCoins {
-		if coin.IsOld(now) {
-			isAnyOld = true
-			break
-		}
-	}
-	if !isAnyOld && len(repositoryCoins) > 0 {
-		// 모든 코인이 최신이면 종료
-		// 단, 코인이 하나도 없다면 종료하지 않는다.
-		//   - 최초 실행시 코인이 없다.
-		//   - 모든 코인이 banned 되었다.
+	if m.needRefresh(now, repositoryCoins) {
 		return nil
 	}
 
@@ -196,6 +179,32 @@ func (m *Miner) Mine(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (m *Miner) needRefresh(now time.Time, repositoryCoins []*domain.Coin) bool {
+	if len(repositoryCoins) == 0 {
+		return true // 코인이 없다면 최신화가 필요하다.
+	}
+	for _, coin := range repositoryCoins {
+		if coin.IsOld(now) {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Miner) listBannedCoinSet(ctx context.Context) (*setpkg.Set[domain.CoinID, *domain.BannedCoin], error) {
+	bannedCoins, err := m.repository.ListBannedCoins(ctx)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	bannedCoinSet := setpkg.NewSet(
+		func(bannedCoin *domain.BannedCoin) domain.CoinID {
+			return bannedCoin.CoinID()
+		},
+	)
+	bannedCoinSet.Add(bannedCoins...)
+	return bannedCoinSet, nil
 }
 
 func (m *Miner) listServiceCoinsWithoutBanned(
