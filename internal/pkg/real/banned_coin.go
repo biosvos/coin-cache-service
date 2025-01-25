@@ -8,9 +8,9 @@ import (
 )
 
 type BannedCoin struct {
-	ID       string
-	BannedAt time.Time
-	Period   time.Duration
+	ID       string        `json:"id,omitempty"`
+	BannedAt time.Time     `json:"banned_at,omitempty"`
+	Period   time.Duration `json:"period,omitempty"`
 }
 
 func NewBannedCoin(coin *domain.BannedCoin) *BannedCoin {

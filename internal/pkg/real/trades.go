@@ -8,9 +8,9 @@ import (
 )
 
 type Trades struct {
-	CoinID     domain.CoinID
-	ModifiedAt time.Time
-	Trades     []*Trade
+	CoinID     domain.CoinID `json:"coin_id,omitempty"`
+	ModifiedAt time.Time     `json:"modified_at,omitempty"`
+	Trades     []*Trade      `json:"trades,omitempty"`
 }
 
 func NewTrades(coinID domain.CoinID, modifiedAt time.Time, domainTrades []*domain.Trade) *Trades {
@@ -22,11 +22,11 @@ func NewTrades(coinID domain.CoinID, modifiedAt time.Time, domainTrades []*domai
 }
 
 type Trade struct {
-	Date         time.Time
-	LastPrice    string
-	OpeningPrice string
-	MaxPrice     string
-	MinPrice     string
+	Date         time.Time `json:"date,omitempty"`
+	LastPrice    string    `json:"last_price,omitempty"`
+	OpeningPrice string    `json:"opening_price,omitempty"`
+	MaxPrice     string    `json:"max_price,omitempty"`
+	MinPrice     string    `json:"min_price,omitempty"`
 }
 
 func (t *Trade) ToDomain() *domain.Trade {

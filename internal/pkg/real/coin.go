@@ -8,9 +8,9 @@ import (
 )
 
 type Coin struct {
-	ID         string
-	Danger     bool
-	ModifiedAt time.Time
+	ID         string    `json:"id,omitempty"`
+	Danger     bool      `json:"danger,omitempty"`
+	ModifiedAt time.Time `json:"modified_at,omitempty"`
 }
 
 const coinPrefix = "coin:"
