@@ -8,5 +8,5 @@ type CoinRepository interface {
 	BannedCoinQuery
 
 	TradeCommand
-	TradeQuery
+	ListTradesQuery
 }

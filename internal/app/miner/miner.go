@@ -7,7 +7,6 @@ import (
 
 	"github.com/biosvos/coin-cache-service/internal/pkg/bus"
 	"github.com/biosvos/coin-cache-service/internal/pkg/coinrepository"
-	"github.com/biosvos/coin-cache-service/internal/pkg/coinservice"
 	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
 	setpkg "github.com/biosvos/coin-cache-service/internal/pkg/set"
 	"github.com/pkg/errors"
@@ -23,7 +22,7 @@ type Repository interface {
 }
 
 type Service interface {
-	coinservice.ListCoinsQuery
+	coinrepository.ListCoinsQuery
 }
 
 // Miner coin 정보를 최신화한다.
@@ -118,7 +117,7 @@ func (m *Miner) Stop() {
 	m.wg.Wait()
 }
 
-func (m *Miner) Mine(ctx context.Context) error {
+func (m *Miner) Mine(ctx context.Context) error { //nolint:cyclop  //FIXME 나중에 nolint 제거
 	m.logger.Info("start mine")
 	defer m.logger.Info("mine done")
 

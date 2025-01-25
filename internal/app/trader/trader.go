@@ -5,14 +5,13 @@ import (
 
 	"github.com/biosvos/coin-cache-service/internal/pkg/bus"
 	"github.com/biosvos/coin-cache-service/internal/pkg/coinrepository"
-	"github.com/biosvos/coin-cache-service/internal/pkg/coinservice"
 	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
 type Service interface {
-	coinservice.ListTradesQuery
+	coinrepository.ListTradesQuery
 }
 
 type Repository interface {

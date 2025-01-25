@@ -46,7 +46,8 @@ func (s *Service) ListTrades(ctx context.Context, coinID domain.CoinID) (*domain
 	now := time.Now()
 	err := retry(func() error {
 		var err error
-		candles, err = s.upbit.ListDayCandles(ctx, string(coinID), 20)
+		const enoughSize = 20
+		candles, err = s.upbit.ListDayCandles(ctx, string(coinID), enoughSize)
 		if err != nil {
 			return err
 		}

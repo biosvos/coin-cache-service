@@ -13,7 +13,7 @@ import (
 	"github.com/biosvos/coin-cache-service/internal/app/trader"
 	"github.com/biosvos/coin-cache-service/internal/pkg/buses/local"
 	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
-	"github.com/biosvos/coin-cache-service/internal/pkg/real"
+	"github.com/biosvos/coin-cache-service/internal/pkg/realrepository"
 	"github.com/biosvos/coin-cache-service/internal/pkg/upbit"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
@@ -110,7 +110,7 @@ func main() {
 	ctx := context.Background()
 
 	service := upbit.NewService()
-	repo := real.NewRepository("/tmp/coins")
+	repo := realrepository.NewRepository("/tmp/coins")
 	bus := local.NewBus(logger)
 	mine := miner.NewMiner(logger, service, repo, bus)
 	prohibitor := prohibitor.NewProhibitor(logger, bus, repo)

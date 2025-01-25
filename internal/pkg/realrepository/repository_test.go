@@ -1,4 +1,4 @@
-package real_test
+package realrepository_test
 
 import (
 	"context"
@@ -6,14 +6,14 @@ import (
 	"time"
 
 	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
-	"github.com/biosvos/coin-cache-service/internal/pkg/real"
+	"github.com/biosvos/coin-cache-service/internal/pkg/realrepository"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRepository_CreateCoin(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	repo := real.NewRepository(dir)
+	repo := realrepository.NewRepository(dir)
 	now := time.Now()
 	ctx := context.Background()
 	domainCoin := domain.NewCoin("A", false, now)
@@ -29,7 +29,7 @@ func TestRepository_CreateCoin(t *testing.T) {
 func TestRepository_ListCoins(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	repo := real.NewRepository(dir)
+	repo := realrepository.NewRepository(dir)
 	now := time.Now()
 	ctx := context.Background()
 	domainCoin := domain.NewCoin("A", false, now)
