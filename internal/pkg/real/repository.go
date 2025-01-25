@@ -191,12 +191,6 @@ func (r *Repository) GetBannedCoin(_ context.Context, coinID domain.CoinID) (*do
 	return ret.ToDomain(), nil
 }
 
-// UpdateBannedCoin implements coinrepository.CoinRepository.
-func (r *Repository) UpdateBannedCoin(_ context.Context, bannedCoin *domain.BannedCoin) (*domain.BannedCoin, error) {
-	_ = bannedCoin
-	panic("unimplemented")
-}
-
 // DeleteBannedCoin implements coinrepository.CoinRepository.
 func (r *Repository) DeleteBannedCoin(_ context.Context, bannedCoin *domain.BannedCoin) error {
 	err := r.kv.Delete(BannedCoinKey(bannedCoin.CoinID()))

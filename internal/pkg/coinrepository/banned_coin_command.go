@@ -8,16 +8,11 @@ import (
 
 type BannedCoinCommand interface {
 	CreateBannedCoinCommand
-	UpdateBannedCoinCommand
 	DeleteBannedCoinCommand
 }
 
 type CreateBannedCoinCommand interface {
 	CreateBannedCoin(ctx context.Context, bannedCoin *domain.BannedCoin) (*domain.BannedCoin, error)
-}
-
-type UpdateBannedCoinCommand interface {
-	UpdateBannedCoin(ctx context.Context, bannedCoin *domain.BannedCoin) (*domain.BannedCoin, error)
 }
 
 type DeleteBannedCoinCommand interface {
