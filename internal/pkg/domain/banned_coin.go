@@ -12,8 +12,8 @@ func NewBannedCoin(coinID CoinID, bannedAt time.Time, period time.Duration) *Ban
 	return &BannedCoin{coinID: coinID, bannedAt: bannedAt, period: period}
 }
 
-func (b *BannedCoin) IsBanExpired(now time.Time) bool {
-	return b.bannedAt.Add(b.period).Before(now)
+func (b *BannedCoin) IsBanOver(now time.Time) bool {
+	return b.bannedAt.Add(b.period).After(now)
 }
 
 func (b *BannedCoin) CoinID() CoinID {
