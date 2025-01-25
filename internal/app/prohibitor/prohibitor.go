@@ -12,9 +12,11 @@ import (
 )
 
 type Repository interface {
+	coinrepository.ListCoinsQuery
 	coinrepository.GetCoinQuery
-	coinrepository.GetBannedCoinQuery
+
 	coinrepository.CreateBannedCoinCommand
+	coinrepository.GetBannedCoinQuery
 }
 
 type Prohibitor struct {
@@ -28,6 +30,16 @@ func NewProhibitor(logger *zap.Logger, bus bus.Bus, repo Repository) *Prohibitor
 }
 
 func (p *Prohibitor) Start(ctx context.Context) error {
+	coins, err := p.repo.ListCoins(ctx)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	for _, coin := range coins {
+		err := p.ProhibitCoin(ctx, coin.ID())
+		if err != nil {
+			return errors.WithStack(err)
+		}
+	}
 	p.bus.Subscribe(ctx, domain.CoinCreatedEventTopic, p.handleCoinCreated)
 	p.bus.Subscribe(ctx, domain.CoinUpdatedEventTopic, p.handleCoinUpdated)
 	return nil

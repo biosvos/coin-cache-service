@@ -9,6 +9,7 @@ import (
 
 	"github.com/biosvos/coin-cache-service/internal/app/flow"
 	"github.com/biosvos/coin-cache-service/internal/app/miner"
+	"github.com/biosvos/coin-cache-service/internal/app/prohibitor"
 	"github.com/biosvos/coin-cache-service/internal/app/trader"
 	"github.com/biosvos/coin-cache-service/internal/pkg/buses/local"
 	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
@@ -106,17 +107,21 @@ func main() {
 			log.Printf("failed to sync logger: %v", err)
 		}
 	}()
+	ctx := context.Background()
 
 	service := upbit.NewService()
 	repo := real.NewRepository("/tmp/coins")
 	bus := local.NewBus(logger)
 	mine := miner.NewMiner(logger, service, repo, bus)
-
+	prohibitor := prohibitor.NewProhibitor(logger, bus, repo)
+	err := prohibitor.Start(ctx)
+	if err != nil {
+		panic(err)
+	}
 	trader := trader.NewTrader(logger, bus, service, repo)
-	ctx := context.Background()
 	trader.Start(ctx)
 
-	err := mine.Mine(ctx)
+	err = mine.Mine(ctx)
 	if err != nil {
 		panic(err)
 	}
