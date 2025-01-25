@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/biosvos/coin-cache-service/internal/app/coinrepository"
-	"github.com/biosvos/coin-cache-service/internal/app/coinservice"
 	"github.com/biosvos/coin-cache-service/internal/pkg/bus"
+	"github.com/biosvos/coin-cache-service/internal/pkg/coinrepository"
+	"github.com/biosvos/coin-cache-service/internal/pkg/coinservice"
 	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
 	setpkg "github.com/biosvos/coin-cache-service/internal/pkg/set"
 	"github.com/pkg/errors"

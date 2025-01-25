@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/biosvos/coin-cache-service/internal/app/coinservice"
+	"github.com/biosvos/coin-cache-service/internal/pkg/coinservice"
 	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
 	"github.com/biosvos/coin-cache-service/internal/pkg/http"
 	"github.com/pkg/errors"

@@ -3,7 +3,7 @@ package flow
 import (
 	"context"
 
-	"github.com/biosvos/coin-cache-service/internal/app/coinrepository"
+	"github.com/biosvos/coin-cache-service/internal/pkg/coinrepository"
 	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
 	setpkg "github.com/biosvos/coin-cache-service/internal/pkg/set"
 )

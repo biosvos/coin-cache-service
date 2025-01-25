@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/biosvos/coin-cache-service/internal/app/coinrepository"
+	"github.com/biosvos/coin-cache-service/internal/pkg/coinrepository"
 	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
 	badger "github.com/dgraph-io/badger/v4"
 )
