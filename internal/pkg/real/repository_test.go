@@ -22,7 +22,7 @@ func TestRepository_CreateCoin(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, domain.CoinID("A"), ret.ID())
-	require.Equal(t, false, ret.IsDanger())
+	require.False(t, ret.IsDanger())
 	require.Equal(t, now, ret.ModifiedAt())
 }
 
@@ -40,6 +40,6 @@ func TestRepository_ListCoins(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, coins, 1)
 	require.Equal(t, domain.CoinID("A"), coins[0].ID())
-	require.Equal(t, false, coins[0].IsDanger())
+	require.False(t, coins[0].IsDanger())
 	require.Equal(t, now.Unix(), coins[0].ModifiedAt().Unix())
 }
