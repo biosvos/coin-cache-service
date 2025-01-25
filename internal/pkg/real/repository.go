@@ -3,75 +3,58 @@ package real
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"log"
 	"time"
 
 	"github.com/biosvos/coin-cache-service/internal/pkg/coinrepository"
 	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
-	badger "github.com/dgraph-io/badger/v4"
+	"github.com/biosvos/coin-cache-service/internal/pkg/keyvalue"
+	"github.com/biosvos/coin-cache-service/internal/pkg/keyvalues/badger"
+	"github.com/pkg/errors"
 )
 
 var _ coinrepository.CoinRepository = (*Repository)(nil)
 
 type Repository struct {
-	db *badger.DB
+	kv *badger.Store
 }
 
 func NewRepository(path string) *Repository {
-	db, err := badger.Open(badger.DefaultOptions(path))
+	kv, err := badger.NewStore(path)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &Repository{db: db}
+	return &Repository{kv: kv}
 }
 
 func (r *Repository) Close() {
-	r.db.Close()
+	r.kv.Close()
 }
 
 // CreateCoin implements coinrepository.CoinRepository.
-func (r *Repository) CreateCoin(ctx context.Context, domainCoin *domain.Coin) (*domain.Coin, error) {
-	err := r.db.Update(func(txn *badger.Txn) error {
-		coin := NewCoin(domainCoin)
-		_, err := txn.Get(coin.Key())
-		if err == nil {
-			return errors.New("coin already exists")
-		}
-		return txn.Set(coin.Key(), coin.Value())
-	})
+func (r *Repository) CreateCoin(_ context.Context, domainCoin *domain.Coin) (*domain.Coin, error) {
+	coin := NewCoin(domainCoin)
+	err := r.kv.Create(coin.Key(), coin.Value())
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 	return domainCoin, nil
 }
 
 // ListCoins implements coinrepository.CoinRepository.
-func (r *Repository) ListCoins(ctx context.Context) ([]*domain.Coin, error) {
+func (r *Repository) ListCoins(_ context.Context) ([]*domain.Coin, error) {
 	var coins []*Coin
-	err := r.db.View(func(txn *badger.Txn) error {
-		it := txn.NewIterator(badger.IteratorOptions{})
-		defer it.Close()
-		prefix := []byte(coinPrefix)
-		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-			item := it.Item()
-			err := item.Value(func(v []byte) error {
-				var coin Coin
-				err := json.Unmarshal(v, &coin)
-				if err != nil {
-					return err
-				}
-				coins = append(coins, &coin)
-				return nil
-			})
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	items, err := r.kv.List([]byte(coinPrefix))
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
+	}
+	for _, item := range items {
+		var coin Coin
+		err := json.Unmarshal(item, &coin)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		coins = append(coins, &coin)
 	}
 	var ret []*domain.Coin
 	for _, coin := range coins {
@@ -81,101 +64,88 @@ func (r *Repository) ListCoins(ctx context.Context) ([]*domain.Coin, error) {
 }
 
 // UpdateCoin implements coinrepository.CoinRepository.
-func (r *Repository) UpdateCoin(ctx context.Context, domainCoin *domain.Coin) (*domain.Coin, error) {
-	err := r.db.Update(func(txn *badger.Txn) error {
-		coin := NewCoin(domainCoin)
-		_, err := txn.Get(coin.Key())
-		if err != nil {
-			return err
-		}
-		return txn.Set(coin.Key(), coin.Value())
-	})
+func (r *Repository) UpdateCoin(_ context.Context, domainCoin *domain.Coin) (*domain.Coin, error) {
+	coin := NewCoin(domainCoin)
+	err := r.kv.Update(coin.Key(), coin.Value())
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 	return domainCoin, nil
 }
 
 // DeleteCoin implements coinrepository.CoinRepository.
-func (r *Repository) DeleteCoin(ctx context.Context, domainCoin *domain.Coin) error {
-	return r.db.Update(func(txn *badger.Txn) error {
-		coin := NewCoin(domainCoin)
-		return txn.Delete(coin.Key())
-	})
+func (r *Repository) DeleteCoin(_ context.Context, domainCoin *domain.Coin) error {
+	coin := NewCoin(domainCoin)
+	err := r.kv.Delete(coin.Key())
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
 }
 
 // SaveTrades implements coinrepository.CoinRepository.
-func (r *Repository) SaveTrades(ctx context.Context, domainTrades *domain.Trades) error {
-	return r.db.Update(func(txn *badger.Txn) error {
-		trades := NewTrades(domainTrades.CoinID(), domainTrades.ModifiedAt(), domainTrades.Trades())
-		return txn.Set(trades.Key(), trades.Value())
-	})
+func (r *Repository) SaveTrades(_ context.Context, domainTrades *domain.Trades) error {
+	trades := NewTrades(domainTrades.CoinID(), domainTrades.ModifiedAt(), domainTrades.Trades())
+	err := r.kv.Update(trades.Key(), trades.Value())
+	if err != nil {
+		if errors.Is(err, keyvalue.ErrKeyNotFound) {
+			err := r.kv.Create(trades.Key(), trades.Value())
+			if err != nil {
+				return errors.WithStack(err)
+			}
+			return nil
+		}
+		return errors.WithStack(err)
+	}
+	return nil
 }
 
 // ListTrades implements coinrepository.CoinRepository.
-func (r *Repository) ListTrades(ctx context.Context, id domain.CoinID) (*domain.Trades, error) {
-	var domainTrades *domain.Trades
-	err := r.db.View(func(txn *badger.Txn) error {
-		trades := NewTrades(id, time.Time{}, nil)
-		item, err := txn.Get(trades.Key())
-		if err != nil {
-			return err
-		}
-		return item.Value(func(v []byte) error {
-			var trades Trades
-			err := json.Unmarshal(v, &trades)
-			if err != nil {
-				return err
-			}
-			domainTrades = trades.ToDomain()
-			return nil
-		})
-	})
+func (r *Repository) ListTrades(_ context.Context, id domain.CoinID) (*domain.Trades, error) {
+	key := NewTrades(id, time.Time{}, nil)
+	item, err := r.kv.Get(key.Key())
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return domainTrades, nil
+	var trades Trades
+	err = json.Unmarshal(item, &trades)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	ret := trades.ToDomain()
+	return ret, nil
 }
 
 // DeleteTrades implements coinrepository.CoinRepository.
-func (r *Repository) DeleteTrades(ctx context.Context, id domain.CoinID) error {
-	return r.db.Update(func(txn *badger.Txn) error {
-		trades := NewTrades(id, time.Time{}, nil)
-		return txn.Delete(trades.Key())
-	})
+func (r *Repository) DeleteTrades(_ context.Context, id domain.CoinID) error {
+	key := NewTrades(id, time.Time{}, nil)
+	err := r.kv.Delete(key.Key())
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
 }
 
 // CreateBannedCoin implements coinrepository.CoinRepository.
-func (r *Repository) CreateBannedCoin(ctx context.Context, bannedCoin *domain.BannedCoin) (*domain.BannedCoin, error) {
+func (r *Repository) CreateBannedCoin(_ context.Context, bannedCoin *domain.BannedCoin) (*domain.BannedCoin, error) {
+	_ = bannedCoin
 	panic("unimplemented")
 }
 
 // ListBannedCoins implements coinrepository.CoinRepository.
-func (r *Repository) ListBannedCoins(ctx context.Context) ([]*domain.BannedCoin, error) {
+func (r *Repository) ListBannedCoins(_ context.Context) ([]*domain.BannedCoin, error) {
 	var coins []*BannedCoin
-	err := r.db.View(func(txn *badger.Txn) error {
-		it := txn.NewIterator(badger.IteratorOptions{})
-		defer it.Close()
-		prefix := []byte(bannedCoinPrefix)
-		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-			item := it.Item()
-			err := item.Value(func(v []byte) error {
-				var coin BannedCoin
-				err := json.Unmarshal(v, &coin)
-				if err != nil {
-					return err
-				}
-				coins = append(coins, &coin)
-				return nil
-			})
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	items, err := r.kv.List([]byte(bannedCoinPrefix))
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
+	}
+	for _, item := range items {
+		var coin BannedCoin
+		err := json.Unmarshal(item, &coin)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		coins = append(coins, &coin)
 	}
 	var ret []*domain.BannedCoin
 	for _, coin := range coins {
@@ -185,11 +155,13 @@ func (r *Repository) ListBannedCoins(ctx context.Context) ([]*domain.BannedCoin,
 }
 
 // UpdateBannedCoin implements coinrepository.CoinRepository.
-func (r *Repository) UpdateBannedCoin(ctx context.Context, bannedCoin *domain.BannedCoin) (*domain.BannedCoin, error) {
+func (r *Repository) UpdateBannedCoin(_ context.Context, bannedCoin *domain.BannedCoin) (*domain.BannedCoin, error) {
+	_ = bannedCoin
 	panic("unimplemented")
 }
 
 // DeleteBannedCoin implements coinrepository.CoinRepository.
-func (r *Repository) DeleteBannedCoin(ctx context.Context, bannedCoin *domain.BannedCoin) error {
+func (r *Repository) DeleteBannedCoin(_ context.Context, bannedCoin *domain.BannedCoin) error {
+	_ = bannedCoin
 	panic("unimplemented")
 }
