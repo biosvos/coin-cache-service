@@ -45,13 +45,11 @@ func (s *Store) List(prefix []byte) ([][]byte, error) {
 		defer it.Close()
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 			item := it.Item()
-			err := item.Value(func(v []byte) error {
-				ret = append(ret, v)
-				return nil
-			})
+			value, err := getValue(item)
 			if err != nil {
 				return errors.WithStack(err)
 			}
+			ret = append(ret, value)
 		}
 		return nil
 	})
@@ -68,10 +66,12 @@ func (s *Store) Get(key []byte) ([]byte, error) {
 		if err != nil {
 			return errors.WithStack(err)
 		}
-		return item.Value(func(v []byte) error {
-			ret = v
-			return nil
-		})
+		value, err := getValue(item)
+		if err != nil {
+			return errors.WithStack(err)
+		}
+		ret = value
+		return nil
 	})
 	if err != nil {
 		if errors.Is(err, badger.ErrKeyNotFound) {
