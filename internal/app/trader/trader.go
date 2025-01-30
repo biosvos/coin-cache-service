@@ -95,6 +95,7 @@ func (t *Trader) addRefreshTradesJob(coinID domain.CoinID) gocron.Job {
 		gocron.DurationJob(interval),
 		gocron.NewTask(
 			t.RefreshTrades,
+			context.Background(),
 			coinID,
 		),
 		gocron.WithTags(string(coinID)),
@@ -126,7 +127,10 @@ func (t *Trader) handleCoinDeletedEvent(ctx context.Context, event domain.Event)
 
 	coinDeletedEvent := domain.ParseCoinDeletedEvent(event.Payload())
 	span.String("coin_id", string(coinDeletedEvent.CoinID))
+
 	t.removeRefreshTradesJob(coinDeletedEvent.CoinID)
+
+	t.DeleteTrades(ctx, coinDeletedEvent.CoinID)
 	return nil
 }
 
@@ -167,8 +171,7 @@ func (t *Trader) handleBannedCoinDeletedEvent(ctx context.Context, event domain.
 	}
 }
 
-func (t *Trader) RefreshTrades(coinID domain.CoinID) {
-	ctx := context.Background()
+func (t *Trader) RefreshTrades(ctx context.Context, coinID domain.CoinID) {
 	ctx, span := t.tracer.Start(ctx, "trader.RefreshTrades")
 	defer span.End()
 	span.String("coin_id", string(coinID))
@@ -185,8 +188,7 @@ func (t *Trader) RefreshTrades(coinID domain.CoinID) {
 	}
 }
 
-func (t *Trader) DeleteTrades(coinID domain.CoinID) {
-	ctx := context.Background()
+func (t *Trader) DeleteTrades(ctx context.Context, coinID domain.CoinID) {
 	ctx, span := t.tracer.Start(ctx, "trader.DeleteTrades")
 	defer span.End()
 	span.String("coin_id", string(coinID))
