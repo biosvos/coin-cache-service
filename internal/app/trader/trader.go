@@ -9,6 +9,7 @@ import (
 	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
 	"github.com/biosvos/coin-cache-service/pkg/tracer"
 	"github.com/go-co-op/gocron/v2"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -21,6 +22,7 @@ type Repository interface {
 	coinrepository.ListCoinsQuery
 	coinrepository.SaveTradesCommand
 	coinrepository.DeleteTradesCommand
+	coinrepository.GetCoinQuery
 }
 
 type Trader struct {
@@ -134,6 +136,7 @@ func (t *Trader) handleBannedCoinCreatedEvent(ctx context.Context, event domain.
 
 	bannedCoinCreatedEvent := domain.ParseBannedCoinCreatedEvent(event.Payload())
 	span.String("coin_id", string(bannedCoinCreatedEvent.CoinID))
+
 	t.removeRefreshTradesJob(bannedCoinCreatedEvent.CoinID)
 	return nil
 }
@@ -144,8 +147,24 @@ func (t *Trader) handleBannedCoinDeletedEvent(ctx context.Context, event domain.
 
 	bannedCoinDeletedEvent := domain.ParseBannedCoinDeletedEvent(event.Payload())
 	span.String("coin_id", string(bannedCoinDeletedEvent.CoinID))
-	t.removeRefreshTradesJob(bannedCoinDeletedEvent.CoinID)
-	return nil
+
+	coin, err := t.repo.GetCoin(ctx, bannedCoinDeletedEvent.CoinID)
+	switch {
+	case errors.Is(err, coinrepository.ErrCoinNotFound):
+		return nil
+
+	case err == nil:
+		job := t.addRefreshTradesJob(coin.ID())
+		err = job.RunNow()
+		if err != nil {
+			span.Error(err)
+		}
+		return nil
+
+	default:
+		span.Error(err)
+		return errors.WithStack(err)
+	}
 }
 
 func (t *Trader) RefreshTrades(coinID domain.CoinID) {
