@@ -9,7 +9,6 @@ import (
 	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
 	"github.com/biosvos/coin-cache-service/pkg/tracer"
 	"github.com/go-co-op/gocron/v2"
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -30,7 +29,6 @@ type Trader struct {
 	repo      Repository
 	scheduler gocron.Scheduler
 	logger    *zap.Logger
-	jobMap    map[domain.CoinID]uuid.UUID
 	tracer    tracer.Tracer
 }
 
@@ -58,21 +56,13 @@ func NewTrader(tracer tracer.Tracer, logger *zap.Logger, bus bus.Bus, service Se
 		service:   service,
 		repo:      repo,
 		scheduler: scheduler,
-		jobMap:    make(map[domain.CoinID]uuid.UUID),
 	}
 
 	for _, coin := range coins {
 		if _, ok := bannedCoinMap[coin.ID()]; ok {
 			continue
 		}
-		job, _ := ret.scheduler.NewJob(
-			gocron.DurationJob(interval),
-			gocron.NewTask(
-				ret.RefreshTrades,
-				coin.ID(),
-			),
-		)
-		ret.jobMap[coin.ID()] = job.ID()
+		_ = ret.addRefreshTradesJob(coin.ID())
 	}
 	return &ret
 }
@@ -98,20 +88,29 @@ func (t *Trader) Stop() {
 	}
 }
 
+func (t *Trader) addRefreshTradesJob(coinID domain.CoinID) gocron.Job {
+	job, _ := t.scheduler.NewJob(
+		gocron.DurationJob(interval),
+		gocron.NewTask(
+			t.RefreshTrades,
+			coinID,
+		),
+		gocron.WithTags(string(coinID)),
+	)
+	return job
+}
+
+func (t *Trader) removeRefreshTradesJob(coinID domain.CoinID) {
+	t.scheduler.RemoveByTags(string(coinID))
+}
+
 func (t *Trader) handleCoinCreatedEvent(ctx context.Context, event domain.Event) error {
 	_, span := t.tracer.Start(ctx, "trader.handleCoinCreatedEvent")
 	defer span.End()
 
 	coinCreatedEvent := domain.ParseCoinCreatedEvent(event.Payload())
 	span.String("coin_id", string(coinCreatedEvent.CoinID))
-	job, _ := t.scheduler.NewJob(
-		gocron.DurationJob(interval),
-		gocron.NewTask(
-			t.RefreshTrades,
-			coinCreatedEvent.CoinID,
-		),
-	)
-	t.jobMap[coinCreatedEvent.CoinID] = job.ID()
+	job := t.addRefreshTradesJob(coinCreatedEvent.CoinID)
 	err := job.RunNow()
 	if err != nil {
 		span.Error(err)
@@ -125,11 +124,7 @@ func (t *Trader) handleCoinDeletedEvent(ctx context.Context, event domain.Event)
 
 	coinDeletedEvent := domain.ParseCoinDeletedEvent(event.Payload())
 	span.String("coin_id", string(coinDeletedEvent.CoinID))
-	err := t.scheduler.RemoveJob(t.jobMap[coinDeletedEvent.CoinID])
-	if err != nil {
-		span.Error(err)
-	}
-	delete(t.jobMap, coinDeletedEvent.CoinID)
+	t.removeRefreshTradesJob(coinDeletedEvent.CoinID)
 	return nil
 }
 
@@ -139,18 +134,7 @@ func (t *Trader) handleBannedCoinCreatedEvent(ctx context.Context, event domain.
 
 	bannedCoinCreatedEvent := domain.ParseBannedCoinCreatedEvent(event.Payload())
 	span.String("coin_id", string(bannedCoinCreatedEvent.CoinID))
-	job, _ := t.scheduler.NewJob(
-		gocron.DurationJob(interval),
-		gocron.NewTask(
-			t.RefreshTrades,
-			bannedCoinCreatedEvent.CoinID,
-		),
-	)
-	t.jobMap[bannedCoinCreatedEvent.CoinID] = job.ID()
-	err := job.RunNow()
-	if err != nil {
-		span.Error(err)
-	}
+	t.removeRefreshTradesJob(bannedCoinCreatedEvent.CoinID)
 	return nil
 }
 
@@ -160,11 +144,7 @@ func (t *Trader) handleBannedCoinDeletedEvent(ctx context.Context, event domain.
 
 	bannedCoinDeletedEvent := domain.ParseBannedCoinDeletedEvent(event.Payload())
 	span.String("coin_id", string(bannedCoinDeletedEvent.CoinID))
-	err := t.scheduler.RemoveJob(t.jobMap[bannedCoinDeletedEvent.CoinID])
-	if err != nil {
-		span.Error(err)
-	}
-	delete(t.jobMap, bannedCoinDeletedEvent.CoinID)
+	t.removeRefreshTradesJob(bannedCoinDeletedEvent.CoinID)
 	return nil
 }
 
