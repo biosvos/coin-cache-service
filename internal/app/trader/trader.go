@@ -143,6 +143,8 @@ func (t *Trader) Stop() {
 func (t *Trader) RefreshTrades(coinID domain.CoinID) {
 	ctx := context.Background()
 	t.logger.Info("refreshing trades", zap.String("coin_id", string(coinID)))
+	defer t.logger.Info("refreshed trades", zap.String("coin_id", string(coinID)))
+
 	trades, err := t.service.ListTrades(ctx, coinID)
 	if err != nil {
 		t.logger.Error("failed to list trades", zap.Error(err))
