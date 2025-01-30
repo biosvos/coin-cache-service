@@ -100,6 +100,31 @@ func (t *Trader) Start(ctx context.Context) {
 		delete(t.jobMap, coinDeletedEvent.CoinID)
 		return nil
 	})
+	t.bus.Subscribe(ctx, domain.BannedCoinCreatedEventTopic, func(_ context.Context, event domain.Event) error {
+		bannedCoinCreatedEvent := domain.ParseBannedCoinCreatedEvent(event.Payload())
+		job, _ := t.scheduler.NewJob(
+			gocron.DurationJob(interval),
+			gocron.NewTask(
+				t.RefreshTrades,
+				bannedCoinCreatedEvent.CoinID,
+			),
+		)
+		t.jobMap[bannedCoinCreatedEvent.CoinID] = job.ID()
+		err := job.RunNow()
+		if err != nil {
+			t.logger.Error("failed to run job", zap.Error(err))
+		}
+		return nil
+	})
+	t.bus.Subscribe(ctx, domain.BannedCoinDeletedEventTopic, func(_ context.Context, event domain.Event) error {
+		bannedCoinDeletedEvent := domain.ParseBannedCoinDeletedEvent(event.Payload())
+		err := t.scheduler.RemoveJob(t.jobMap[bannedCoinDeletedEvent.CoinID])
+		if err != nil {
+			t.logger.Error("failed to remove job", zap.Error(err))
+		}
+		delete(t.jobMap, bannedCoinDeletedEvent.CoinID)
+		return nil
+	})
 	for _, job := range t.scheduler.Jobs() {
 		err := job.RunNow()
 		if err != nil {
