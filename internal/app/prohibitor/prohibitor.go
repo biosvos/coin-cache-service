@@ -77,6 +77,7 @@ func (p *Prohibitor) checkAndAllowCoin(ctx context.Context, coinID domain.CoinID
 		return errors.WithStack(err)
 	}
 	p.logger.Info("allowed coin", zap.String("coin_id", string(bannedCoin.CoinID())))
+	p.bus.Publish(ctx, domain.NewBannedCoinDeletedEvent(bannedCoin.CoinID()))
 	return nil
 }
 
@@ -133,6 +134,7 @@ func (p *Prohibitor) CheckAndProhibitCoinByStatus(ctx context.Context, coinID do
 	if err != nil {
 		return errors.WithStack(err)
 	}
+	p.bus.Publish(ctx, domain.NewBannedCoinCreatedEvent(coinID))
 	p.logger.Info("prohibited coin", zap.String("coin_id", string(coinID)))
 	return nil
 }
@@ -184,6 +186,7 @@ func (p *Prohibitor) CheckAndProhibitCoinByTrades(ctx context.Context, coinID do
 		return errors.WithStack(err)
 	}
 	p.logger.Info("prohibited coin", zap.String("coin_id", string(coinID)))
+	p.bus.Publish(ctx, domain.NewBannedCoinCreatedEvent(coinID))
 	return nil
 }
 
