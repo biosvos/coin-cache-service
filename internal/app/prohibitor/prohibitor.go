@@ -9,6 +9,7 @@ import (
 	"github.com/biosvos/coin-cache-service/internal/pkg/bus"
 	"github.com/biosvos/coin-cache-service/internal/pkg/coinrepository"
 	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
+	"github.com/go-co-op/gocron/v2"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
@@ -26,16 +27,19 @@ type Repository interface {
 }
 
 type Prohibitor struct {
-	logger *zap.Logger
-	bus    bus.Bus
-	repo   Repository
+	logger    *zap.Logger
+	bus       bus.Bus
+	repo      Repository
+	scheduler gocron.Scheduler
 }
 
 func NewProhibitor(logger *zap.Logger, bus bus.Bus, repo Repository) *Prohibitor {
-	return &Prohibitor{logger: logger, bus: bus, repo: repo}
+	scheduler, _ := gocron.NewScheduler()
+	return &Prohibitor{logger: logger, bus: bus, repo: repo, scheduler: scheduler}
 }
 
 func (p *Prohibitor) Start(ctx context.Context) error {
+	p.scheduler.Start()
 	err := p.checkAndAllowCoins(ctx)
 	if err != nil {
 		return errors.WithStack(err)
@@ -47,6 +51,13 @@ func (p *Prohibitor) Start(ctx context.Context) error {
 	p.bus.Subscribe(ctx, domain.CoinCreatedEventTopic, p.handleCoinCreated)
 	p.bus.Subscribe(ctx, domain.CoinUpdatedEventTopic, p.handleCoinUpdated)
 	return nil
+}
+
+func (p *Prohibitor) Stop() {
+	err := p.scheduler.Shutdown()
+	if err != nil {
+		p.logger.Error("failed to shutdown scheduler", zap.Error(err))
+	}
 }
 
 func (p *Prohibitor) checkAndAllowCoins(ctx context.Context) error {

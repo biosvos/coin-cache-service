@@ -112,6 +112,7 @@ func main() {
 	service := upbit.NewService()
 	repo := realrepository.NewRepository("/tmp/coins")
 	bus := local.NewBus(logger)
+
 	mine := miner.NewMiner(logger, service, repo, bus)
 	err := mine.Start()
 	if err != nil {
@@ -119,14 +120,16 @@ func main() {
 	}
 	defer mine.Stop()
 
+	trader := trader.NewTrader(logger, bus, service, repo)
+	trader.Start(ctx)
+	defer trader.Stop()
+
 	prohibitor := prohibitor.NewProhibitor(logger, bus, repo)
 	err = prohibitor.Start(ctx)
 	if err != nil {
 		panic(err)
 	}
-	trader := trader.NewTrader(logger, bus, service, repo)
-	trader.Start(ctx)
-	defer trader.Stop()
+	defer prohibitor.Stop()
 
 	flowService := flow.NewService(repo)
 
