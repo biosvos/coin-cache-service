@@ -2,13 +2,13 @@ package miner
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/biosvos/coin-cache-service/internal/pkg/bus"
 	"github.com/biosvos/coin-cache-service/internal/pkg/coinrepository"
 	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
 	setpkg "github.com/biosvos/coin-cache-service/internal/pkg/set"
+	"github.com/go-co-op/gocron/v2"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
@@ -32,11 +32,7 @@ type Miner struct {
 	bus        bus.Bus
 	logger     *zap.Logger
 
-	timer         *time.Timer
-	wg            sync.WaitGroup
-	isRunningFlag bool
-	stopCh        chan struct{}
-	mu            sync.Mutex
+	scheduler gocron.Scheduler
 }
 
 func NewMiner(
@@ -45,76 +41,52 @@ func NewMiner(
 	repository Repository,
 	bus bus.Bus,
 ) *Miner {
-	return &Miner{
+	scheduler, _ := gocron.NewScheduler() // option이 없으면 error도 발생하지 않는다.
+	ret := Miner{
 		logger:     logger,
 		service:    service,
 		repository: repository,
 		bus:        bus,
-
-		stopCh: make(chan struct{}),
-
-		wg:            sync.WaitGroup{},
-		mu:            sync.Mutex{},
-		timer:         nil,
-		isRunningFlag: false,
+		scheduler:  scheduler,
 	}
+	_, _ = ret.scheduler.NewJob(
+		gocron.DurationJob(
+			mineInterval,
+		),
+		gocron.NewTask(
+			func() {
+				ret.logger.Info("run task")
+				defer ret.logger.Info("task done")
+
+				ctx := context.Background()
+				err := ret.Mine(ctx)
+				if err != nil {
+					ret.logger.Error("failed to mine", zap.Error(err))
+				}
+			},
+		),
+	)
+	return &ret
 }
 
 const mineInterval = 10 * time.Minute
 
-func (m *Miner) setRunning() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.isRunningFlag {
-		return errors.New("miner is already running")
-	}
-	m.isRunningFlag = true
-	m.timer = time.NewTimer(mineInterval)
-	m.wg.Add(1)
-	return nil
-}
-
-func (m *Miner) clearRunning() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.wg.Done()
-	if m.timer != nil {
-		m.timer.Stop()
-		m.timer = nil
-	}
-	m.isRunningFlag = false
-}
-
-func (m *Miner) Start(ctx context.Context) error {
-	err := m.Mine(ctx)
-	if err != nil {
-		return err
-	}
-	err = m.setRunning()
-	if err != nil {
-		return err
-	}
-	go func() {
-		defer m.clearRunning()
-		for {
-			select {
-			case <-m.timer.C:
-				err := m.Mine(ctx)
-				if err != nil {
-					m.logger.Error("failed to mine", zap.Error(err))
-				}
-				_ = m.timer.Reset(mineInterval)
-			case <-m.stopCh:
-				return
-			}
+func (m *Miner) Start() error {
+	m.scheduler.Start()
+	for _, job := range m.scheduler.Jobs() {
+		err := job.RunNow()
+		if err != nil {
+			return errors.WithStack(err)
 		}
-	}()
+	}
 	return nil
 }
 
 func (m *Miner) Stop() {
-	m.stopCh <- struct{}{}
-	m.wg.Wait()
+	err := m.scheduler.Shutdown()
+	if err != nil {
+		m.logger.Error("failed to shutdown scheduler", zap.Error(err))
+	}
 }
 
 func (m *Miner) Mine(ctx context.Context) error { //nolint:cyclop  //FIXME 나중에 nolint 제거

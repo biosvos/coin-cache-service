@@ -121,10 +121,11 @@ func main() {
 	trader := trader.NewTrader(logger, bus, service, repo)
 	trader.Start(ctx)
 
-	err = mine.Mine(ctx)
+	err = mine.Start()
 	if err != nil {
 		panic(err)
 	}
+	defer mine.Stop()
 
 	flowService := flow.NewService(repo)
 
