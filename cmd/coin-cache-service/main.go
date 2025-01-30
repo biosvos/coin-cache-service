@@ -15,6 +15,7 @@ import (
 	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
 	"github.com/biosvos/coin-cache-service/internal/pkg/realrepository"
 	"github.com/biosvos/coin-cache-service/internal/pkg/upbit"
+	"github.com/biosvos/coin-cache-service/pkg/tracer/telemetry"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/danielgtaylor/huma/v2/humacli"
@@ -109,18 +110,24 @@ func main() {
 	}()
 	ctx := context.Background()
 
+	tracer, err := telemetry.NewTracer(ctx, "coin-cache-service")
+	if err != nil {
+		panic(err)
+	}
+	defer tracer.Shutdown()
+
 	service := upbit.NewService()
 	repo := realrepository.NewRepository("/tmp/coins")
 	bus := local.NewBus(logger)
 
-	mine := miner.NewMiner(logger, service, repo, bus)
-	err := mine.Start()
+	mine := miner.NewMiner(tracer, logger, service, repo, bus)
+	err = mine.Start()
 	if err != nil {
 		panic(err)
 	}
 	defer mine.Stop()
 
-	trader := trader.NewTrader(logger, bus, service, repo)
+	trader := trader.NewTrader(tracer, logger, bus, service, repo)
 	trader.Start(ctx)
 	defer trader.Stop()
 

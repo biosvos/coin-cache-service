@@ -7,6 +7,7 @@ import (
 	"github.com/biosvos/coin-cache-service/internal/pkg/bus"
 	"github.com/biosvos/coin-cache-service/internal/pkg/coinrepository"
 	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
+	"github.com/biosvos/coin-cache-service/pkg/tracer"
 	"github.com/go-co-op/gocron/v2"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -29,11 +30,12 @@ type Trader struct {
 	scheduler gocron.Scheduler
 	logger    *zap.Logger
 	jobMap    map[domain.CoinID]uuid.UUID
+	tracer    tracer.Tracer
 }
 
 const interval = time.Minute * 10
 
-func NewTrader(logger *zap.Logger, bus bus.Bus, service Service, repo Repository) *Trader {
+func NewTrader(tracer tracer.Tracer, logger *zap.Logger, bus bus.Bus, service Service, repo Repository) *Trader {
 	scheduler, _ := gocron.NewScheduler() // option이 없으면 error도 발생하지 않는다.
 	ctx := context.Background()
 	coins, err := repo.ListCoins(ctx)
@@ -49,6 +51,7 @@ func NewTrader(logger *zap.Logger, bus bus.Bus, service Service, repo Repository
 		bannedCoinMap[coin.CoinID()] = struct{}{}
 	}
 	ret := Trader{
+		tracer:    tracer,
 		logger:    logger,
 		bus:       bus,
 		service:   service,
@@ -142,18 +145,18 @@ func (t *Trader) Stop() {
 
 func (t *Trader) RefreshTrades(coinID domain.CoinID) {
 	ctx := context.Background()
-	t.logger.Info("refreshing trades", zap.String("coin_id", string(coinID)))
-	defer t.logger.Info("refreshed trades", zap.String("coin_id", string(coinID)))
+	ctx, span := t.tracer.Start(ctx, "trader.RefreshTrades")
+	defer span.End()
+	span.String("coin_id", string(coinID))
 
 	trades, err := t.service.ListTrades(ctx, coinID)
 	if err != nil {
-		t.logger.Error("failed to list trades", zap.Error(err))
+		span.Error(err)
 		return
 	}
 	err = t.repo.SaveTrades(ctx, trades)
 	if err != nil {
-		t.logger.Error("failed to save trades", zap.Error(err))
+		span.Error(err)
 		return
 	}
-	t.logger.Info("refreshed trades", zap.String("coin_id", string(coinID)))
 }

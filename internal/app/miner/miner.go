@@ -8,6 +8,7 @@ import (
 	"github.com/biosvos/coin-cache-service/internal/pkg/coinrepository"
 	"github.com/biosvos/coin-cache-service/internal/pkg/domain"
 	setpkg "github.com/biosvos/coin-cache-service/internal/pkg/set"
+	"github.com/biosvos/coin-cache-service/pkg/tracer"
 	"github.com/go-co-op/gocron/v2"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -31,11 +32,12 @@ type Miner struct {
 	repository Repository
 	bus        bus.Bus
 	logger     *zap.Logger
-
-	scheduler gocron.Scheduler
+	tracer     tracer.Tracer
+	scheduler  gocron.Scheduler
 }
 
 func NewMiner(
+	tracer tracer.Tracer,
 	logger *zap.Logger,
 	service Service,
 	repository Repository,
@@ -43,6 +45,7 @@ func NewMiner(
 ) *Miner {
 	scheduler, _ := gocron.NewScheduler() // option이 없으면 error도 발생하지 않는다.
 	ret := Miner{
+		tracer:     tracer,
 		logger:     logger,
 		service:    service,
 		repository: repository,
@@ -55,10 +58,10 @@ func NewMiner(
 		),
 		gocron.NewTask(
 			func() {
+				ctx := context.Background()
 				ret.logger.Info("run task")
 				defer ret.logger.Info("task done")
 
-				ctx := context.Background()
 				err := ret.Mine(ctx)
 				if err != nil {
 					ret.logger.Error("failed to mine", zap.Error(err))
@@ -90,8 +93,8 @@ func (m *Miner) Stop() {
 }
 
 func (m *Miner) Mine(ctx context.Context) error { //nolint:cyclop  //FIXME 나중에 nolint 제거
-	m.logger.Info("start mine")
-	defer m.logger.Info("mine done")
+	ctx, span := m.tracer.Start(ctx, "miner.Mine")
+	defer span.End()
 
 	bannedCoinSet, err := m.listBannedCoinSet(ctx)
 	if err != nil {
