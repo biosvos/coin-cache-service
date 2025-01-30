@@ -120,6 +120,7 @@ func main() {
 	}
 	trader := trader.NewTrader(logger, bus, service, repo)
 	trader.Start(ctx)
+	defer trader.Stop()
 
 	err = mine.Start()
 	if err != nil {
