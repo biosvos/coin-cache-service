@@ -21,6 +21,7 @@ type Repository interface {
 	coinrepository.ListBannedCoinsQuery
 	coinrepository.ListCoinsQuery
 	coinrepository.SaveTradesCommand
+	coinrepository.DeleteTradesCommand
 }
 
 type Trader struct {
@@ -78,56 +79,10 @@ func NewTrader(tracer tracer.Tracer, logger *zap.Logger, bus bus.Bus, service Se
 
 func (t *Trader) Start(ctx context.Context) {
 	t.scheduler.Start()
-	t.bus.Subscribe(ctx, domain.CoinCreatedEventTopic, func(_ context.Context, event domain.Event) error {
-		coinCreatedEvent := domain.ParseCoinCreatedEvent(event.Payload())
-		job, _ := t.scheduler.NewJob(
-			gocron.DurationJob(interval),
-			gocron.NewTask(
-				t.RefreshTrades,
-				coinCreatedEvent.CoinID,
-			),
-		)
-		t.jobMap[coinCreatedEvent.CoinID] = job.ID()
-		err := job.RunNow()
-		if err != nil {
-			t.logger.Error("failed to run job", zap.Error(err))
-		}
-		return nil
-	})
-	t.bus.Subscribe(ctx, domain.CoinDeletedEventTopic, func(_ context.Context, event domain.Event) error {
-		coinDeletedEvent := domain.ParseCoinDeletedEvent(event.Payload())
-		err := t.scheduler.RemoveJob(t.jobMap[coinDeletedEvent.CoinID])
-		if err != nil {
-			t.logger.Error("failed to remove job", zap.Error(err))
-		}
-		delete(t.jobMap, coinDeletedEvent.CoinID)
-		return nil
-	})
-	t.bus.Subscribe(ctx, domain.BannedCoinCreatedEventTopic, func(_ context.Context, event domain.Event) error {
-		bannedCoinCreatedEvent := domain.ParseBannedCoinCreatedEvent(event.Payload())
-		job, _ := t.scheduler.NewJob(
-			gocron.DurationJob(interval),
-			gocron.NewTask(
-				t.RefreshTrades,
-				bannedCoinCreatedEvent.CoinID,
-			),
-		)
-		t.jobMap[bannedCoinCreatedEvent.CoinID] = job.ID()
-		err := job.RunNow()
-		if err != nil {
-			t.logger.Error("failed to run job", zap.Error(err))
-		}
-		return nil
-	})
-	t.bus.Subscribe(ctx, domain.BannedCoinDeletedEventTopic, func(_ context.Context, event domain.Event) error {
-		bannedCoinDeletedEvent := domain.ParseBannedCoinDeletedEvent(event.Payload())
-		err := t.scheduler.RemoveJob(t.jobMap[bannedCoinDeletedEvent.CoinID])
-		if err != nil {
-			t.logger.Error("failed to remove job", zap.Error(err))
-		}
-		delete(t.jobMap, bannedCoinDeletedEvent.CoinID)
-		return nil
-	})
+	t.bus.Subscribe(ctx, domain.CoinCreatedEventTopic, t.handleCoinCreatedEvent)
+	t.bus.Subscribe(ctx, domain.CoinDeletedEventTopic, t.handleCoinDeletedEvent)
+	t.bus.Subscribe(ctx, domain.BannedCoinCreatedEventTopic, t.handleBannedCoinCreatedEvent)
+	t.bus.Subscribe(ctx, domain.BannedCoinDeletedEventTopic, t.handleBannedCoinDeletedEvent)
 	for _, job := range t.scheduler.Jobs() {
 		err := job.RunNow()
 		if err != nil {
@@ -141,6 +96,76 @@ func (t *Trader) Stop() {
 	if err != nil {
 		t.logger.Error("failed to shutdown scheduler", zap.Error(err))
 	}
+}
+
+func (t *Trader) handleCoinCreatedEvent(ctx context.Context, event domain.Event) error {
+	_, span := t.tracer.Start(ctx, "trader.handleCoinCreatedEvent")
+	defer span.End()
+
+	coinCreatedEvent := domain.ParseCoinCreatedEvent(event.Payload())
+	span.String("coin_id", string(coinCreatedEvent.CoinID))
+	job, _ := t.scheduler.NewJob(
+		gocron.DurationJob(interval),
+		gocron.NewTask(
+			t.RefreshTrades,
+			coinCreatedEvent.CoinID,
+		),
+	)
+	t.jobMap[coinCreatedEvent.CoinID] = job.ID()
+	err := job.RunNow()
+	if err != nil {
+		span.Error(err)
+	}
+	return nil
+}
+
+func (t *Trader) handleCoinDeletedEvent(ctx context.Context, event domain.Event) error {
+	_, span := t.tracer.Start(ctx, "trader.handleCoinDeletedEvent")
+	defer span.End()
+
+	coinDeletedEvent := domain.ParseCoinDeletedEvent(event.Payload())
+	span.String("coin_id", string(coinDeletedEvent.CoinID))
+	err := t.scheduler.RemoveJob(t.jobMap[coinDeletedEvent.CoinID])
+	if err != nil {
+		span.Error(err)
+	}
+	delete(t.jobMap, coinDeletedEvent.CoinID)
+	return nil
+}
+
+func (t *Trader) handleBannedCoinCreatedEvent(ctx context.Context, event domain.Event) error {
+	_, span := t.tracer.Start(ctx, "trader.handleBannedCoinCreatedEvent")
+	defer span.End()
+
+	bannedCoinCreatedEvent := domain.ParseBannedCoinCreatedEvent(event.Payload())
+	span.String("coin_id", string(bannedCoinCreatedEvent.CoinID))
+	job, _ := t.scheduler.NewJob(
+		gocron.DurationJob(interval),
+		gocron.NewTask(
+			t.RefreshTrades,
+			bannedCoinCreatedEvent.CoinID,
+		),
+	)
+	t.jobMap[bannedCoinCreatedEvent.CoinID] = job.ID()
+	err := job.RunNow()
+	if err != nil {
+		span.Error(err)
+	}
+	return nil
+}
+
+func (t *Trader) handleBannedCoinDeletedEvent(ctx context.Context, event domain.Event) error {
+	_, span := t.tracer.Start(ctx, "trader.handleBannedCoinDeletedEvent")
+	defer span.End()
+
+	bannedCoinDeletedEvent := domain.ParseBannedCoinDeletedEvent(event.Payload())
+	span.String("coin_id", string(bannedCoinDeletedEvent.CoinID))
+	err := t.scheduler.RemoveJob(t.jobMap[bannedCoinDeletedEvent.CoinID])
+	if err != nil {
+		span.Error(err)
+	}
+	delete(t.jobMap, bannedCoinDeletedEvent.CoinID)
+	return nil
 }
 
 func (t *Trader) RefreshTrades(coinID domain.CoinID) {
@@ -158,5 +183,17 @@ func (t *Trader) RefreshTrades(coinID domain.CoinID) {
 	if err != nil {
 		span.Error(err)
 		return
+	}
+}
+
+func (t *Trader) DeleteTrades(coinID domain.CoinID) {
+	ctx := context.Background()
+	ctx, span := t.tracer.Start(ctx, "trader.DeleteTrades")
+	defer span.End()
+	span.String("coin_id", string(coinID))
+
+	err := t.repo.DeleteTrades(ctx, coinID)
+	if err != nil {
+		span.Error(err)
 	}
 }
