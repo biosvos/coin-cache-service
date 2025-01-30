@@ -3,6 +3,7 @@ package coinrepository
 import "github.com/pkg/errors"
 
 var (
-	ErrBannedCoinNotFound = errors.New("banned coin not found")
-	ErrCoinNotFound       = errors.New("coin not found")
+	ErrBannedCoinNotFound      = errors.New("banned coin not found")
+	ErrCoinNotFound            = errors.New("coin not found")
+	ErrBannedCoinAlreadyExists = errors.New("banned coin already exists")
 )
