@@ -24,6 +24,10 @@ func (b *BannedCoin) BannedAt() time.Time {
 	return b.bannedAt
 }
 
+func (b *BannedCoin) ExpiredAt() time.Time {
+	return b.bannedAt.Add(b.period)
+}
+
 func (b *BannedCoin) Period() time.Duration {
 	return b.period
 }
